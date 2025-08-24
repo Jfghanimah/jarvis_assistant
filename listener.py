@@ -120,7 +120,7 @@ class ClientHandler(threading.Thread):
 
             print(f"[{self.mic_id}] Transcribing audio...")
             command_text = self.recognizer.recognize_google(audio_data)
-            tagged_message = f"METADATA: {{source_room: '{self.mic_id}'}} REQUEST: {command_text}"
+            tagged_message = f"METADATA: {{source_room: '{self.mic_id}'}} MESSAGE: {command_text}"
             self.command_queue.put(tagged_message)
 
         except sr.UnknownValueError:

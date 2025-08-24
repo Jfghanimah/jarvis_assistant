@@ -69,7 +69,6 @@ def command_consumer_thread(command_queue, dispatcher, openai_client):
     from the queue and process them.
     """
     conversation_history = []
-    system_prompt = get_system_prompt()
 
     while True:
         try:

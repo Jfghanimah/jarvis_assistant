@@ -6,7 +6,7 @@ import sys
 # --- CONFIGURATION ---
 SERVER_HOST = '10.0.0.145'  # <-- IMPORTANT: Change this to the IP address of your main server
 SERVER_PORT = 12345         # The port the listener service is waiting on
-MIC_ID = "computer_mic"       # A unique identifier for this microphone
+MIC_ID = "joseph room"       # A unique identifier for this microphone
 
 # Audio stream settings (must match the server's expectations)
 CHUNK = 1024

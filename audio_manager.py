@@ -28,7 +28,7 @@ class AudioManager:
 
         Args:
             text (str): The text to be spoken.
-            target_speakers (list or str): The speakers/zone to play the sound on.
+            target_speakers (list or str): The speakers to play the sound on.
             volume (int): The target volume (currently unused in this simulation).
         """
         if not text:
@@ -47,7 +47,6 @@ class AudioManager:
             
             tts.save(temp_filename)
 
-            print(f"Audio Manager: Playing announcement on default speaker for target '{target_speakers}'.")
             # Play the sound file
             playsound(temp_filename)
             
