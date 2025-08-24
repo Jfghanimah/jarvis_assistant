@@ -58,9 +58,6 @@ class Dispatcher:
         volume = f" at {params.get('volume')}% volume" if params.get('volume') is not None else ""
 
         print(f"Action: Playing '{song_info}{artist}' in '{target}'{platform}{volume}.")
-        print("Simulating playback...")
-        time.sleep(2) # Simulate time taken to start music
-        print("Playback started.")
 
     def _handle_set_volume(self, params):
         """
@@ -70,7 +67,6 @@ class Dispatcher:
         volume = params.get('volume', 'a default level')
 
         print(f"Action: Setting volume to {volume}% in '{target}'.")
-        print("Volume adjusted.")
 
 
     def _handle_make_announcement(self, params):
@@ -81,11 +77,8 @@ class Dispatcher:
         target = params.get('zone') or params.get('speakers', 'all')
         volume = f" at {params.get('volume')}% volume" if params.get('volume') is not None else ""
 
-        self.audio_manager.speak(text=message, target_speakers=target, volume=volume)
-
-
         print(f"Action: Announcing to '{target}'{volume}: '{message}'")
-        print("Announcement sent.")
+        self.audio_manager.speak(text=message, target_speakers=target, volume=volume)
 
 # This block allows you to test the dispatcher independently.
 # To run, execute `python dispatcher.py` in your terminal.

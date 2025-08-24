@@ -21,7 +21,7 @@ AUDIO_WIDTH = 2 # 2 bytes for paInt16 (16-bit audio)
 CHUNK_SIZE = 1280 # 80ms chunks for openWakeWord
 
 # VAD Settings
-VAD_THRESHOLD = 400  # RMS volume threshold to start/stop recording. Adjust this for your mic sensitivity.
+VAD_THRESHOLD = 600  # RMS volume threshold to start/stop recording. Adjust this for your mic sensitivity.
 VAD_SILENCE_TIMEOUT = 2.0  # Seconds of silence to wait before stopping recording.
 
 # --- PRODUCER: THE CLIENT HANDLER THREAD ---

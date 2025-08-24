@@ -6,7 +6,7 @@ import sys
 # --- CONFIGURATION ---
 SERVER_HOST = '10.0.0.145'  # <-- IMPORTANT: Change this to the IP address of your main server
 SERVER_PORT = 12345         # The port the listener service is waiting on
-MIC_ID = "laptop_mic"       # A unique identifier for this microphone
+MIC_ID = "computer_mic"       # A unique identifier for this microphone
 
 # Audio stream settings (must match the server's expectations)
 CHUNK = 1024
@@ -54,10 +54,7 @@ def stream_audio(client_socket):
             client_socket.sendall(data)
 
     except OSError as e:
-        print(f"\n!!! AUDIO ERROR !!!")
-        print(f"Error opening audio stream: {e}")
-        print(f"This usually means the sample rate ({RATE} Hz) is not supported by your microphone.")
-        print("Please check your microphone's settings.")
+        print(f"ERROR opening audio stream: {e}")
     except (BrokenPipeError, ConnectionResetError):
         print("Connection to the server was lost.")
     except KeyboardInterrupt:
