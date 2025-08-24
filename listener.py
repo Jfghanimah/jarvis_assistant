@@ -9,6 +9,7 @@ import speech_recognition as sr
 from openwakeword.model import Model
 from pathlib import Path
 import socket
+import audioop
 
 # --- CONFIGURATION ---
 SERVER_HOST = '0.0.0.0'  # Listen on all available network interfaces
@@ -18,6 +19,10 @@ SERVER_PORT = 12345      # The port for mic_clients to connect to
 AUDIO_RATE = 16000
 AUDIO_WIDTH = 2 # 2 bytes for paInt16 (16-bit audio)
 CHUNK_SIZE = 1280 # 80ms chunks for openWakeWord
+
+# VAD Settings
+VAD_THRESHOLD = 400  # RMS volume threshold to start/stop recording. Adjust this for your mic sensitivity.
+VAD_SILENCE_TIMEOUT = 2.0  # Seconds of silence to wait before stopping recording.
 
 # --- PRODUCER: THE CLIENT HANDLER THREAD ---
 
@@ -59,7 +64,7 @@ class ClientHandler(threading.Thread):
                 if prediction['hey_jarvis_v0.1'] > 0.5:
                     print(f"\n--- Wake Word Detected on [{self.mic_id}]! ---")
                     # Pass the chunk that triggered the wake word to the transcriber
-                    self.transcribe_and_queue_command(initial_chunk=audio_chunk)
+                    self.transcribe_and_queue_command()
                     
                     # FIX: Reset the model's internal state to prevent re-triggering
                     self.oww_model.reset()
@@ -74,14 +79,41 @@ class ClientHandler(threading.Thread):
             print(f"[{self.mic_id}] Closing connection.")
             self.client_socket.close()
 
-    def transcribe_and_queue_command(self, initial_chunk):
+    def transcribe_and_queue_command(self):
         try:
-            print(f"[{self.mic_id}] Capturing command...")
-            command_audio_frames = [initial_chunk]
-            num_chunks_to_capture = int(3 * (AUDIO_RATE * AUDIO_WIDTH) / CHUNK_SIZE)
+            print(f"[{self.mic_id}] Capturing command (VAD enabled)...")
+            
+            command_audio_frames = []
+            is_speaking = False
+            silence_chunks = 0
+            max_silence_chunks = int(VAD_SILENCE_TIMEOUT * AUDIO_RATE / CHUNK_SIZE)
 
-            for _ in range(num_chunks_to_capture):
-                command_audio_frames.append(self.client_socket.recv(CHUNK_SIZE))
+            while True:
+                audio_chunk = self.client_socket.recv(CHUNK_SIZE)
+                if not audio_chunk:
+                    break
+                
+                # Calculate the volume (RMS) of the chunk
+                rms = audioop.rms(audio_chunk, AUDIO_WIDTH)
+
+                if rms > VAD_THRESHOLD:
+                    # If sound is detected, start recording and reset silence counter
+                    if not is_speaking:
+                        print(f"[{self.mic_id}] Speaking detected.")
+                        is_speaking = True
+                    command_audio_frames.append(audio_chunk)
+                    silence_chunks = 0
+                elif is_speaking:
+                    # If we were recording but are now in silence
+                    silence_chunks += 1
+                    command_audio_frames.append(audio_chunk) # Also capture the silence
+                    if silence_chunks > max_silence_chunks:
+                        print(f"[{self.mic_id}] Silence detected. Ending capture.")
+                        break
+            
+            if not command_audio_frames:
+                print(f"[{self.mic_id}] No command captured after wake word.")
+                return
 
             full_command_audio = b''.join(command_audio_frames)
             audio_data = sr.AudioData(full_command_audio, AUDIO_RATE, AUDIO_WIDTH)
