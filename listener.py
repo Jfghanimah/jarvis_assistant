@@ -1,3 +1,5 @@
+# listener.py
+
 import threading
 import time
 import numpy as np
@@ -69,16 +71,19 @@ class ClientHandler(threading.Thread):
             self.client_socket.close()
 
     def transcribe_and_queue_command(self, initial_chunk):
-        # This function is more complex now as it needs to handle a live stream
-        # For now, we'll try to transcribe the initial chunk, but a more robust
-        # solution would buffer a few seconds of audio after the wake word.
         try:
+            print(f"[{self.mic_id}] Capturing command...")
+            command_audio_frames = [initial_chunk]
+            num_chunks_to_capture = int(3 * (AUDIO_RATE * AUDIO_WIDTH) / CHUNK_SIZE)
+
+            for _ in range(num_chunks_to_capture):
+                command_audio_frames.append(self.client_socket.recv(CHUNK_SIZE))
+
+            full_command_audio = b''.join(command_audio_frames)
+            audio_data = sr.AudioData(full_command_audio, AUDIO_RATE, AUDIO_WIDTH)
+
             print(f"[{self.mic_id}] Transcribing audio...")
-            
-            # Convert the raw audio chunk to SpeechRecognition's AudioData format
-            audio_data = sr.AudioData(initial_chunk, AUDIO_RATE, AUDIO_WIDTH)
             command_text = self.recognizer.recognize_google(audio_data)
-            
             tagged_message = f"METADATA: {{source_room: '{self.mic_id}'}} REQUEST: {command_text}"
             self.command_queue.put(tagged_message)
 
@@ -86,6 +91,8 @@ class ClientHandler(threading.Thread):
             print(f"[{self.mic_id}] Could not understand audio after wake word.")
         except sr.RequestError as e:
             print(f"[{self.mic_id}] STT service error; {e}")
+        except Exception as e:
+            print(f"An error occurred during transcription: {e}")
 
     def stop(self):
         self.is_running = False
@@ -98,12 +105,7 @@ def start_listening_service(command_queue):
     Returns the main server thread so it can be managed.
     """
     print("Downloading wake word models (if necessary)...")
-    # This will download all pre-trained models to the default cache location.
-    # It only downloads them if they don't already exist.
     openwakeword.utils.download_models()
-    
-    # Initialize the model using the simple, correct name.
-    # The library will find the model file in its cache.
     oww_model = Model(wakeword_models=['hey_jarvis_v0.1'])
 
     # Create a new thread for the server itself
@@ -120,6 +122,7 @@ def start_listening_service(command_queue):
 def run_server(command_queue, oww_model):
     """The main loop for the TCP server."""
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((SERVER_HOST, SERVER_PORT))
     server_socket.listen(5) # Allow up to 5 pending connections
 
@@ -132,6 +135,7 @@ def run_server(command_queue, oww_model):
             
             # Create and start a new thread for each connecting client
             handler = ClientHandler(client_socket, address, command_queue, oww_model)
+            handler.daemon = True
             handler.start()
             client_threads.append(handler)
 

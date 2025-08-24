@@ -4,7 +4,7 @@ import threading
 import sys
 
 # --- CONFIGURATION ---
-SERVER_HOST = '127.0.0.1'  # <-- IMPORTANT: Change this to the IP address of your main server
+SERVER_HOST = '10.0.0.145'  # <-- IMPORTANT: Change this to the IP address of your main server
 SERVER_PORT = 12345         # The port the listener service is waiting on
 MIC_ID = "laptop_mic"       # A unique identifier for this microphone
 

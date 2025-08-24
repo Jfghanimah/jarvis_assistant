@@ -2,6 +2,8 @@
 import json
 import queue
 import os
+import threading
+import time
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -59,68 +61,67 @@ def parse_and_execute(command_json_str, dispatcher):
             print("Error: LLM response is missing 'function' or 'parameters' key.")
     except json.JSONDecodeError:
         print(f"Error: LLM did not return a valid JSON object. Response was:\n{command_json_str}")
-        
 
-# --- MAIN APPLICATION LOOP ---
-def main():
+
+def command_consumer_thread(command_queue, dispatcher, openai_client):
     """
-    Main function to run the Jarvis assistant loop.
+    This function runs in its own thread. Its only job is to wait for commands
+    from the queue and process them.
     """
-
-    load_dotenv()
-    openai_client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
-    dispatcher = Dispatcher()  
-    # start the listener threads for the microphones
-    command_queue = queue.Queue()    
-    listener_threads = start_listening_service(command_queue)
-
     conversation_history = []
+    system_prompt = get_system_prompt()
 
-    print("\n--- Jarvis Main Application is Running ---")
-    print("Waiting for commands from the listener service...")
-    
-
-    # 4. Start the main "Consumer" loop
-    try:
-        while True:
-            # This line will block and wait until a command appears in the queue.
-            # This is the equivalent of waiting for input().
+    while True:
+        try:
+            # This is the only place a blocking call happens now.
             tagged_command = command_queue.get()
 
             print(f"\n--- MAIN: Popped command from queue: '{tagged_command}' ---")
 
-            # Prepare the prompt for the LLM
-            live_prompt = get_system_prompt()
-            
-            # Add the new user message to the persistent history
+            live_prompt = get_system_prompt() # Get fresh timestamp
             conversation_history.append({"role": "user", "content": tagged_command})
-
-            # Construct the full message list to send to the API
             messages_to_send = [
                 {"role": "system", "content": live_prompt},
-                *conversation_history # Add all previous user/assistant turns
-            ]           
+                *conversation_history
+            ]
 
-            # Get the LLM's command
             llm_response_json = get_llm_response(openai_client, messages_to_send)
 
-            # Execute the command and update history
             if llm_response_json:
-                # Add the assistant's response to the history for future context
                 conversation_history.append({"role": "assistant", "content": llm_response_json})
                 parse_and_execute(llm_response_json, dispatcher)
-            
+
             if len(conversation_history) > 10:
                 conversation_history = conversation_history[-10:]
-            
+
+        except Exception as e:
+            print(f"Error in consumer thread: {e}")
         
+
+# --- MAIN APPLICATION LOOP ---
+def main():
+    load_dotenv()
+    openai_client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
+    dispatcher = Dispatcher()
+    command_queue = queue.Queue()
+    
+    # Start the listener service (which is a daemon thread)
+    start_listening_service(command_queue)
+
+    # Start the command consumer thread (also a daemon)
+    consumer = threading.Thread(target=command_consumer_thread, args=(command_queue, dispatcher, openai_client))
+    consumer.daemon = True
+    consumer.start()
+
+    print("\n--- Jarvis Main Application is Running ---")
+    print("Press Ctrl+C to exit.")
+
+    # The main thread will now just sleep, keeping it responsive to Ctrl+C
+    try:
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\n--- Shutting down all services ---")
-        for thread in listener_threads:
-            thread.stop()
-        for thread in listener_threads:
-            thread.join()
-        print("All listener threads shut down. Exiting.")
+        print("\n--- Shutting down Jarvis ---")
 
 if __name__ == "__main__":
     main()
