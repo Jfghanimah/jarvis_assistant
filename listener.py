@@ -60,6 +60,10 @@ class ClientHandler(threading.Thread):
                     print(f"\n--- Wake Word Detected on [{self.mic_id}]! ---")
                     # Pass the chunk that triggered the wake word to the transcriber
                     self.transcribe_and_queue_command(initial_chunk=audio_chunk)
+                    
+                    # FIX: Reset the model's internal state to prevent re-triggering
+                    self.oww_model.reset()
+                    
                     print(f"[{self.mic_id}] Resuming wake word listening...")
 
         except ConnectionResetError:
